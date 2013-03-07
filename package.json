@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "start": "zerver --manifest=cache.manifest -d web --port=5000",
-    "test": "vows --spec"
+    "test": "vows --spec test/*.js"
   },
   "devDependencies": {
     "vows": "0.6.x",
