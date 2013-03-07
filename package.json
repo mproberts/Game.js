@@ -1,0 +1,25 @@
+{
+  "name": "goodgame",
+  "description": "My god, it's full of games!",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "zerver --manifest=cache.manifest -d web --port=5000",
+    "test": "vows --spec"
+  },
+  "devDependencies": {
+    "vows": "0.6.x",
+    "should": "1.1.x"
+  },
+  "dependencies": {
+    "zerver": "0.8.5"
+  },
+  "engines": {
+    "node": "0.8.x",
+    "npm": "1.1.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mproberts/twentysided.git"
+  },
+  "author": "Mike Roberts <mike@kik.com>"
+}
