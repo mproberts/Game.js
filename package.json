@@ -4,11 +4,14 @@
   "version": "0.0.1",
   "scripts": {
     "start": "zerver --manifest=cache.manifest -d web --port=5000",
-    "test": "vows --spec test/*.js"
+    "test": "grunt vows",
+    "build": "grunt"
   },
   "devDependencies": {
     "vows": "0.6.x",
-    "should": "1.1.x"
+    "should": "1.1.x",
+    "grunt": "~0.4.0",
+    "grunt-vows": "0.4.0"
   },
   "dependencies": {
     "zerver": "0.8.5"
