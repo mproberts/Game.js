@@ -1,0 +1,1 @@
+../dist/goodgame-0.0.1.js

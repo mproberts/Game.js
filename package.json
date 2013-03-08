@@ -3,7 +3,7 @@
   "description": "My god, it's full of games!",
   "version": "0.0.1",
   "scripts": {
-    "start": "zerver --manifest=cache.manifest -d web --port=5000",
+    "start": "zerver --manifest=cache.manifest -d demos --port=5000",
     "test": "grunt vows",
     "build": "grunt"
   },
@@ -11,7 +11,9 @@
     "vows": "0.6.x",
     "should": "1.1.x",
     "grunt": "~0.4.0",
-    "grunt-vows": "0.4.0"
+    "grunt-vows": "0.4.0",
+    "grunt-contrib-uglify": "0.x.x",
+    "grunt-contrib-concat": "0.x.x"
   },
   "dependencies": {
     "zerver": "0.8.5"
