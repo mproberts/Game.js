@@ -24,10 +24,11 @@ module.exports = function(grunt) {
       },
       dist: {
         src: [
-          'lib/requestAnimationFrame.js',
           'lib/utils.js',
+          'lib/timers.js',
           'lib/easing.js',
-          'lib/game-object.js'
+          'lib/game-object.js',
+          'lib/engine.js'
         ],
         dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.js'
       }
