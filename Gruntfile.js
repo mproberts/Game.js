@@ -28,9 +28,20 @@ module.exports = function(grunt) {
           'lib/timers.js',
           'lib/easing.js',
           'lib/game-object.js',
-          'lib/engine.js'
+          'lib/engine.js',
+          'lib/browser.js',
         ],
         dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.js'
+      }
+    },
+
+    watch: {
+      scripts: {
+        files: ['lib/**/*.js'],
+        tasks: ['default'],
+        options: {
+          nospawn: true
+        }
       }
     },
 
@@ -49,6 +60,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks("grunt-vows");
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-watch');
 
   grunt.registerTask('test', ['vows']);
 

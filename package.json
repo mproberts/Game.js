@@ -13,7 +13,8 @@
     "grunt": "~0.4.0",
     "grunt-vows": "0.4.0",
     "grunt-contrib-uglify": "0.x.x",
-    "grunt-contrib-concat": "0.x.x"
+    "grunt-contrib-concat": "0.x.x",
+    "grunt-contrib-watch": "0.x.x"
   },
   "dependencies": {
     "zerver": "0.8.5"
@@ -24,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mproberts/twentysided.git"
+    "url": "https://github.com/mproberts/goodgame.git"
   },
   "author": "Mike Roberts <mike@kik.com>"
 }
