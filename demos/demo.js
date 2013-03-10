@@ -29,11 +29,13 @@ gg.object('mass', 'bounce', 'accelerometer', {
 	dx: 0, dy: 0,
 	x: gg.view.width / 2,
 	y: gg.view.height / 2,
-	onacceleration: function(x, y, z) {
-		var targetDx = 5 * x;
-		var targetDy = 5 * y;
+	ontick: function(delta) {
+		if (this.accelerationX) {
+			var targetDx = 5 * this.accelerationX;
+			var targetDy = 5 * this.accelerationY;
 
-		this.dx = this.dx + (targetDx - this.dx) / 16;
-		this.dy = this.dy + (targetDy - this.dy) / 16;
+			this.dx = this.dx + (targetDx - this.dx) / 16;
+			this.dy = this.dy + (targetDy - this.dy) / 16;
+		}
 	}
 });
