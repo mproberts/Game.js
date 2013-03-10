@@ -42,7 +42,7 @@ module.exports = function(grunt) {
         files: ['lib/**/*.js'],
         tasks: ['default'],
         options: {
-          nospawn: true
+          nospawn: false
         }
       }
     },

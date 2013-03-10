@@ -3,6 +3,7 @@ if (cards && cards.browser && cards.browser.setOrientationLock) {
 }
 
 gg.setCanvas(document.getElementById('game'));
+gg.updateDisplay(document.documentElement.offsetWidth, document.documentElement.offsetHeight);
 
 gg.start();
 
