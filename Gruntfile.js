@@ -27,10 +27,12 @@ module.exports = function(grunt) {
           'lib/utils.js',
           'lib/timers.js',
           'lib/easing.js',
+          'lib/resources.js',
           'lib/game-object.js',
           'lib/engine.js',
           'lib/physics.js',
           'lib/controls.js',
+          'lib/sprites.js',
           'lib/browser.js'
         ],
         dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.js'
