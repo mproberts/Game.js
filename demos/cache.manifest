@@ -3,7 +3,10 @@ CACHE MANIFEST
 demo.js
 goodgame.js
 
-hamster-rest.png
+res/hamster-rest.png
+res/hamster-jump.png
+
+res/platform-orange.png
 
 NETWORK:
 *
