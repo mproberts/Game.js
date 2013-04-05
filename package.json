@@ -1,9 +1,9 @@
 {
-  "name": "goodgame",
+  "name": "game",
   "description": "My god, it's full of games!",
   "version": "0.0.1",
   "scripts": {
-    "start": "zerver --manifest=cache.manifest -d demos --port=5000",
+    "start": "zerver --manifest=cache.manifest -d demos --port=5001",
     "test": "grunt vows",
     "build": "grunt"
   },
@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mproberts/goodgame.git"
+    "url": "https://github.com/mproberts/Game.js.git"
   },
   "author": "Mike Roberts <mike@kik.com>"
 }

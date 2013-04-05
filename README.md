@@ -1,2 +1,4 @@
-# Good Game Engine
+# Game.js
+
+Well-made games.
 
