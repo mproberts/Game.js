@@ -31,6 +31,7 @@ module.exports = function(grunt) {
           'lib/game-object.js',
           'lib/physics.js',
           'lib/controls.js',
+          'lib/button.js',
           'lib/sprites.js',
           'lib/text.js',
           'lib/collisions.js',
