@@ -29,12 +29,13 @@ module.exports = function(grunt) {
           'lib/easing.js',
           'lib/resources.js',
           'lib/game-object.js',
-          'lib/engine.js',
           'lib/physics.js',
           'lib/controls.js',
           'lib/sprites.js',
           'lib/text.js',
-          'lib/collisions.js'
+          'lib/collisions.js',
+          'lib/engine.js',
+          'lib/default-behaviours.js'
         ],
         dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.js'
       }
