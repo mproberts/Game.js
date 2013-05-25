@@ -35,6 +35,7 @@ module.exports = function(grunt) {
           'lib/sprites.js',
           'lib/text.js',
           'lib/collisions.js',
+          'lib/scenes.js',
           'lib/engine.js',
           'lib/default-behaviours.js'
         ],
