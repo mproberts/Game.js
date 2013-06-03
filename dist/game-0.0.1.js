@@ -602,7 +602,7 @@
 
 				this._cache[sprite.url] = cache;
 			}
-			
+
 			if (callback) {
 				cache.callback.add(callback);
 			}
@@ -810,11 +810,13 @@
 
 		target._boundListeners = target._boundListeners || {};
 
-		for (var ev in listeners) {
-			if (listeners.hasOwnProperty(ev)) {
-				if (!target._boundListeners[ev]) {
-					target._boundListeners[ev] = true;
-					target.on(ev, listeners[ev], target);
+		for (var eventName in listeners) {
+			var key = this._name + '.' + eventName;
+
+			if (listeners.hasOwnProperty(eventName)) {
+				if (!target._boundListeners[key]) {
+					target._boundListeners[key] = true;
+					target.on(eventName, listeners[eventName], target);
 				}
 			}
 		}
@@ -855,11 +857,13 @@
 
 		target._boundListeners = target._boundListeners || {};
 
-		for (var ev in listeners) {
-			if (listeners.hasOwnProperty(ev)) {
-				if (target._boundListeners[ev]) {
-					target._boundListeners[ev] = false;
-					target.off(ev, listeners[ev], target);
+		for (var eventName in listeners) {
+			var key = this._name + '.' + eventName;
+			
+			if (listeners.hasOwnProperty(eventName)) {
+				if (target._boundListeners[key]) {
+					target._boundListeners[key] = false;
+					target.off(eventName, listeners[eventName], target);
 				}
 			}
 		}
@@ -1123,8 +1127,8 @@
 			var children = this._children;
 
 			var contextSaved = false;
-			var x = ~~this.x;
-			var y = ~~this.y;
+			var x = ~~this.x - ~~this.centerX;
+			var y = ~~this.y - ~~this.centerY;
 			var offsetX = ~~this.offsetX;
 			var offsetY = ~~this.offsetY;
 
@@ -1184,10 +1188,10 @@
 					contextSaved = true;
 
 					context.save();
-					context.translate(x + offsetX, y + offsetY);
+					context.translate(x + offsetX + ~~this.centerX, y + offsetY + ~~this.centerY);
 				}
 				else {
-					context.translate(offsetX, offsetY);
+					context.translate(offsetX + ~~this.centerX, offsetY + ~~this.centerY);
 				}
 
 				children = [].concat(children);
@@ -1850,7 +1854,15 @@
 				var letter = this.transformLetter(this.text[i]);
 				var letterUrl = this.getLetterUrl(letter);
 
-				var img = this.engine.resources.image(letterUrl);
+				var img = null;
+				var skipped = false;
+
+				if (letter === 'space') {
+					skipped = true;
+				}
+				else {
+					img = this.engine.resources.image(letterUrl);
+				}
 
 				if (img) {
 					w += img.width;
@@ -1863,7 +1875,10 @@
 				}
 				else {
 					w += this.getKerning(letter);
-					cacheable = false;
+
+					if (!skipped) {
+						cacheable = false;
+					}
 				}
 			}
 
@@ -1884,7 +1899,7 @@
 
 		onrender: function(ctx) {
 			var x = ~~(this.x + 0.5);
-			var y = ~~(this.y + 0.5) - this.height;
+			var y = ~~(this.y + 0.5);
 			var xoffset = 0;
 
 			if (this.measuredText !== this.text && typeof(this.align) !== 'undefined') {
@@ -1955,6 +1970,7 @@
 
 			this.measuredText = this.text;
 			this.measuredWidth = metrics.width;
+			this.height = metrics.height;
 
 			this.trigger('textchanged');
 
@@ -1966,7 +1982,7 @@
 
 		onrender: function(ctx) {
 			var x = ~~(this.x + 0.5);
-			var y = ~~(this.y + 0.5);
+			var y = ~~(this.y + 0.5) + ~~this.height;
 			var xoffset = 0;
 
 			if (this.font) {
@@ -2455,6 +2471,7 @@ if (typeof(require) !== 'undefined') {
 		this.super({}, this);
 
 		this.engine = this;
+		this.entityCount = 0;
 
 		this.accelerationHistory = [];
 		
@@ -3062,6 +3079,8 @@ if (typeof(require) !== 'undefined') {
 		this._objects[object.id] = object;
 
 		if (wasAdded) {
+			this.entityCount++;
+			
 			var behaviours = object._behaviours;
 
 			for (var k in behaviours) {
@@ -3073,13 +3092,17 @@ if (typeof(require) !== 'undefined') {
 	};
 
 	Game.prototype.removeObject = function(object) {
-		delete this._objects[object.id];
+		if (this._objects.hasOwnProperty(object.id)) {
+			this.entityCount--;
 
-		var behaviours = object._behaviours;
+			delete this._objects[object.id];
 
-		for (var k in behaviours) {
-			if (behaviours.hasOwnProperty(k)) {
-				behaviours[k].removeBehaviour(object);
+			var behaviours = object._behaviours;
+
+			for (var k in behaviours) {
+				if (behaviours.hasOwnProperty(k)) {
+					behaviours[k].removeBehaviour(object);
+				}
 			}
 		}
 	};
