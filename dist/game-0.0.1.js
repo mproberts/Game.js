@@ -1,5 +1,4 @@
 (function(exports) {
-
 	/**
 	 * Helper methods for class structure, eventing, etc.
 	 */
@@ -213,19 +212,43 @@
 		};
 	};
 
+	Utils.checkAABBIntersection = function(a, b) {
+		var bx = b.x, bxw = b.x + b.width;
+		var by = b.y, byh = b.y + b.height;
+
+		var points = [
+			[a.x, a.y],
+			[a.x+a.width, a.y],
+			[a.x, a.y+a.height],
+			[a.x+a.width, a.y+a.height]
+		];
+
+		for (var i = 0; i < 4; ++i) {
+			var p = points[i];
+			var px = p[0];
+			var py = p[1];
+
+			if (px >= bx && px <= bxw && py >= by && py <= byh) {
+				return true;
+			}
+		}
+
+		return false;
+	};
+
 	Utils.extendTo = function(base, ctor) {
 		function dummy() {
 		}
 
 		function clzz() {
 			var result;
-			var old = this.super;
+			var old = this['super'];
 
-			this.super = base;
+			this['super'] = base;
 			result = ctor.apply(this, arguments);
 
 			if (old) {
-				this.super = old;
+				this['super'] = old;
 			}
 
 			return result;
@@ -236,10 +259,10 @@
 		};
 
 		dummy.prototype = base.prototype;
-		dummy.prototype.constructor = base;
+		dummy.prototype['constructor'] = base;
 
 		clzz.prototype = new dummy();
-		clzz.prototype.constructor = clzz;
+		clzz.prototype['constructor'] = clzz;
 
 		return clzz;
 	};
@@ -418,6 +441,12 @@
 	var lastTime = 0;
 	var vendors = ['ms', 'moz', 'webkit', 'o'];
 
+	function bind(fn, context) {
+		return function() {
+			return fn.apply(context, Array.prototype.slice.call(arguments, 0));
+		};
+	}
+
 	for (var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
 		window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
 		window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
@@ -427,13 +456,13 @@
 	// use setTimeout if all else fails
 	if (!window.requestAnimationFrame) {
 		window.requestAnimationFrame = function(callback, element) {
-			var currTime = Date.now();
-			var timeToCall = Math.max(0, 2 - (currTime - lastTime));
+			var currTime = +new Date();
+			var timeToCall = Math.max(0, 15 - (currTime - lastTime));
 			
 			var id = window.setTimeout(function() {
-				var nextTime = Date.now();
+				var nextTime = +new Date();
 				callback(nextTime);
-			}, 0);
+			}, 2);
 			
 			lastTime = currTime + timeToCall;
 			
@@ -470,7 +499,7 @@
 	 * Timer for the web and node!
 	 */
 	var ClockTimer = Utils.extendTo(Timer, function(callback, maxAdvance) {
-		this.super(callback);
+		this['super'](callback);
 
 		this._maxAdvance = maxAdvance || ClockTimer.DEFAULT_MAX_ADVANCE;
 
@@ -481,13 +510,13 @@
 		return this;
 	});
 
-	ClockTimer.DEFAULT_MAX_ADVANCE = 50;
+	ClockTimer.DEFAULT_MAX_ADVANCE = 100;
 
 	ClockTimer.prototype.start = function() {
 		if (!this._running) {
 			this._running = true;
 
-			this._nextRequest = window.requestAnimationFrame(this._nextFrame.bind(this));
+			this._nextRequest = window.requestAnimationFrame(bind(this._nextFrame, this));
 		}
 	};
 
@@ -509,7 +538,7 @@
 
 			this.advance(Math.min(~~(delta + 0.5), this._maxAdvance), function() {
 				if (self._running) {
-					self._nextRequest = window.requestAnimationFrame(self._nextFrame.bind(self));
+					self._nextRequest = window.requestAnimationFrame(bind(self._nextFrame, self));
 				}
 			});
 		}
@@ -517,7 +546,7 @@
 			this._lastTimestamp = timestamp;
 
 			if (this._running) {
-				this._nextRequest = window.requestAnimationFrame(this._nextFrame.bind(this));
+				this._nextRequest = window.requestAnimationFrame(bind(this._nextFrame, this));
 			}
 		}
 	};
@@ -752,7 +781,7 @@
 	 * The mixin type that adds behaviours to game objects
 	 */
 	var Behaviour = Utils.extendTo(Events, function(name, definition, engine) {
-		this.super();
+		this['super']();
 
 		definition = definition || {};
 
@@ -816,7 +845,26 @@
 			if (listeners.hasOwnProperty(eventName)) {
 				if (!target._boundListeners[key]) {
 					target._boundListeners[key] = true;
-					target.on(eventName, listeners[eventName], target);
+
+					var listener = listeners[eventName];
+
+					// track particular events
+					/*
+					if (eventName === 'render' || eventName === 'tick') {
+						listener = function(listener, behaviourName) {
+							return function() {
+								var startDate = +new Date();
+								var value = listener.apply(this, Array.prototype.slice.call(arguments, 0));
+								var endDate = +new Date();
+
+								target.trackEvent(eventName, behaviourName, endDate-startDate);
+
+								return value;
+							};
+						}(listener, this._name);
+					}*/
+
+					target.on(eventName, listener, target);
 				}
 			}
 		}
@@ -916,10 +964,11 @@
 	 * The root game object
 	 */
 	var GameObject = Utils.extendTo(Events, function(behaviours, defaults, engine) {
-		this.super();
+		this['super']();
 
 		this._behaviours = {};
 		this._children = [];
+		this._times = {};
 		this._updating = false;
 
 		this._pendingRemoves = [];
@@ -988,6 +1037,8 @@
 
 			this._updating = true;
 
+			var childUpdateStart = +new Date();
+
 			// tick all active children
 			if (children.length > 0) {
 				children = [].concat(children);
@@ -1001,7 +1052,11 @@
 				}
 			}
 
+			var childUpdateEnd = +new Date();
+
 			this.trigger('tick', timeStep);
+
+			var updateEnd = +new Date();
 
 			this._updating = false;
 
@@ -1022,6 +1077,11 @@
 					return ~~a.z - ~~b.z;
 				});
 			}
+
+			var childOrganzationEnd = +new Date();
+
+			//this.trackTime('Child Update', childUpdateEnd-childUpdateStart);
+			//this.trackTime('Update', updateEnd-childUpdateEnd);
 		});
 
 		this.on('touchstart', function(x, y, ev) {
@@ -1124,6 +1184,8 @@
 				game.breakOn = game.breakOn;
 			}
 
+			var parentRenderStart = +new Date();
+
 			var children = this._children;
 
 			var contextSaved = false;
@@ -1177,7 +1239,26 @@
 				context.translate(-x - ~~this.centerX, -y - ~~this.centerY);
 			}
 
+			if (this.clip) {
+				if (!contextSaved) {
+					contextSaved = true;
+					context.save();
+				}
+
+				context.beginPath();
+
+				context.rect(~~this.x, ~~this.y, ~~this.width, ~~this.height);
+
+				context.closePath();
+
+				context.clip();
+			}
+
+			var parentRenderEnd = +new Date();
+
 			this.trigger('render', context);
+
+			var renderEnd = +new Date();
 
 			if (contextSaved) {
 				context.translate(x, y);
@@ -1185,13 +1266,23 @@
 
 			if (children.length > 0) {
 				if (!contextSaved) {
-					contextSaved = true;
+					var tx = x + offsetX + ~~this.centerX;
+					var ty = y + offsetY + ~~this.centerY;
 
-					context.save();
-					context.translate(x + offsetX + ~~this.centerX, y + offsetY + ~~this.centerY);
+					if (tx !== 0 || ty !== 0) {
+						contextSaved = true;
+
+						context.save();
+						context.translate(x + offsetX + ~~this.centerX, y + offsetY + ~~this.centerY);
+					}
 				}
 				else {
-					context.translate(offsetX + ~~this.centerX, offsetY + ~~this.centerY);
+					var tx = offsetX + ~~this.centerX;
+					var ty = offsetY + ~~this.centerY;
+
+					if (tx !== 0 || ty !== 0) {
+						context.translate(offsetX + ~~this.centerX, offsetY + ~~this.centerY);
+					}
 				}
 
 				children = [].concat(children);
@@ -1199,6 +1290,18 @@
 				// render all children
 				for (var i = 0, l = children.length; i < l; ++i) {
 					var child = children[i];
+
+					var cy = (child.y || 0);
+					var cyh = cy + ~~child.height;
+
+					if (this.clip) {
+						if (cyh < -offsetY) {
+							continue;
+						}
+						else if (cy > this.height - offsetY) {
+							continue;
+						}
+					}
 
 					child.trigger('subrender', context);
 				}
@@ -1208,6 +1311,8 @@
 				context.restore();
 			}
 
+			var childRenderEnd = +new Date();
+
 			if (compositeChanged) {
 				context.globalCompositeOperation = 'source-over';
 			}
@@ -1215,6 +1320,10 @@
 			if (alphaChanged) {
 				context.globalAlpha = oldAlpha;
 			}
+
+			//this.trackTime('Render Setup', parentRenderEnd-parentRenderStart);
+			//this.trackTime('Render', renderEnd-parentRenderEnd);
+			//this.trackTime('Child Render', childRenderEnd-renderEnd);
 		});
 
 		this.on('gizmos', function(context) {
@@ -1319,6 +1428,198 @@
 
 		return this;
 	});
+
+	GameObject.prototype.trackEvent = function(eventName, behaviourName, delta) {
+		var target = [behaviourName, eventName].join('.');
+		var current = this._times[target];
+		var value = delta;
+
+		if (current) {
+			value = (current + delta)/2;
+		}
+
+		this._times[target] = value;
+	};
+
+	GameObject.prototype.trackTime = function(target, delta) {
+		var current = this._times[target];
+		var value = delta;
+
+		if (current) {
+			value = (current + delta)/2;
+		}
+
+		this._times[target] = value;
+	};
+
+	GameObject.prototype.boundingBox = function() {
+		var x = ~~this.x - ~~this.centerX;
+		var y = ~~this.y - ~~this.centerY;
+
+		return {
+			x: x, y: y, width: this.width, height: this.height
+		};
+	};
+
+	GameObject.prototype.debugLog = function(parent, allKeys) {
+		var result = '';
+
+		function sum(array) {
+			array = array || [];
+
+			var sum = 0;
+
+			for (var i = 0; i < array.length; ++i) {
+				sum += array[i];
+			}
+
+			return sum;
+		}
+
+		function average(array) {
+			return array.length > 0 ? sum(array) / array.length : 0;
+		}
+
+		function round(value, precision) {
+			value *= Math.pow(10, precision);
+			value = Math.round(value);
+			value /= Math.pow(10, precision);
+
+			return value;
+		}
+
+		var row = [];
+		var name = this.tag ? this.tag + '(' + this.id + ')' : this.id;
+
+		allKeys = allKeys || [];
+
+		var keys = [];
+
+		for (var k in this._times) {
+			if (this._times.hasOwnProperty(k)) {
+				keys.push(k);
+
+				var found = false;
+
+				for (var i = 0; i < allKeys.length; ++i) {
+					if (allKeys[i] === k) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					allKeys.push(k);
+				}
+			}
+		}
+
+		row.push(name);
+		row.push(parent || '');
+
+		for (var i = 0; i < allKeys.length; ++i) {
+			if (this._times.hasOwnProperty(keys[i])) {
+				row.push(round(this._times[keys[i]], 3));
+			}
+			else {
+				row.push('');
+			}
+		}
+
+		result += (row.join('\t')) + '\n';
+
+		var children = this._children;
+
+		// tick all active children
+		if (children.length > 0) {
+			children = [].concat(children);
+
+			for (var i = 0, l = children.length; i < l; ++i) {
+				var child = children[i];
+
+				result += child.debugLog(name, allKeys);
+			}
+		}
+
+		if (!parent) {
+			var header = ['Name', 'Parent'];
+
+			for (var i = 0; i < allKeys.length; ++i) {
+				header.push(allKeys[i]);
+			}
+
+			result = (header.join('\t')) + '\n' + result;
+		}
+
+		return result;
+	};
+
+	GameObject.prototype.debugLog2 = function(parent) {
+		parent = parent || '';
+
+		function average(array) {
+			array = array || [];
+
+			var sum = 0;
+
+			for (var i = 0; i < array.length; ++i) {
+				sum += array[i];
+			}
+
+			return array.length > 0 ? sum / array.length : 0;
+		}
+
+		function round(value, precision) {
+			value *= Math.pow(10, precision);
+			value = Math.round(value);
+			value /= Math.pow(10, precision);
+
+			return value;
+		}
+
+		var row = [];
+		var name = this.tag ? this.tag + '(' + this.id + ')' : this.id;
+
+		var keys = [];
+
+		for (var k in this._times) {
+			if (this._times.hasOwnProperty(k)) {
+				keys.push(k);
+			}
+		}
+
+		if (!parent) {
+			var header = ['Name', 'Parent'];
+
+			for (var i = 0; i < keys.length; ++i) {
+				header.push(keys[i]);
+			}
+
+			console.log(header.join('\t'));
+		}
+
+		row.push(name);
+		row.push(parent);
+
+		for (var i = 0; i < keys.length; ++i) {
+			row.push(round(this._times[keys[i]], 3));
+		}
+
+		console.log(row.join('\t'));
+
+		var children = this._children;
+
+		// tick all active children
+		if (children.length > 0) {
+			children = [].concat(children);
+
+			for (var i = 0, l = children.length; i < l; ++i) {
+				var child = children[i];
+
+				child.debugLog(name);
+			}
+		}
+	};
 
 	GameObject.prototype.addModal = function(modal) {
 		var self = this;
@@ -1457,6 +1758,16 @@
 		return this;
 	};
 
+	GameObject.prototype.indexOfChild = function(child) {
+		for (var i = 0; i < this._children.length; ++i) {
+			if (this._children[i] === child) {
+				return i;
+			}
+		}
+
+		return null;
+	};
+
 	GameObject.prototype.insertChild = function(child, index) {
 		if (child.parent) {
 			// unbind from existing parent
@@ -1497,10 +1808,19 @@
 		if (child.engine && engineRemove) {
 			child.engine.removeObject(child);
 
+			var children = [].concat(child._children);
+
+			for (var i = 0, l = children.length; i < l; ++i) {
+				child.removeChild(children[i], engineRemove);
+			}
+
+			child._children = [];
+
 			for (var k in child._behaviours) {
 				var behaviour = child._behaviours[k];
 
 				behaviour.unhookChild(child);
+				behaviour.removeBehaviour(child);
 			}
 		}
 
@@ -1716,12 +2036,12 @@
 			if (this.isDown) {
 				this.isDown = false;
 
+				this.updateState();
+
 				if (!this.disabled) {
 					this.trigger('click', x, y);
 				}
 			}
-
-			this.updateState();
 
 			return wasTouched;
 		}
@@ -1756,8 +2076,11 @@
 			var self = this;
 
 			if (this.url && (!this.cachedImage || this.cachedUrl !== this.url)) {
+				var found = false;
+
 				this.engine.resources.image(this.url, function(cache, url) {
 					if (cache) {
+						found = true;
 						self.cachedImage = cache;
 						self.cachedUrl = url;
 
@@ -1850,6 +2173,19 @@
 			var h = 0;
 			var cacheable = true;
 
+			var period = this.getLetterUrl('period');
+			var periodKerning = this.getKerning('period');
+
+			var ellipsisWidth = (period.width || 0) * 3 + periodKerning * 3;
+
+			var targetWidth = this.fixedWidth ? this.fixedWidth : Number.MAX_VALUE;
+			var targetEllipsisWidth = this.fixedWidth ? this.fixedWidth - ellipsisWidth : Number.MAX_VALUE;
+
+			var ellipsisIndex = -1;
+
+			this.ellipsized = false;
+			this.ellipsisLength = 0;
+
 			for (var i = 0, l = this.text.length; i < l; ++i) {
 				var letter = this.transformLetter(this.text[i]);
 				var letterUrl = this.getLetterUrl(letter);
@@ -1859,6 +2195,7 @@
 
 				if (letter === 'space') {
 					skipped = true;
+					w += this.getSpaceSize ? this.getSpaceSize() : 0;
 				}
 				else {
 					img = this.engine.resources.image(letterUrl);
@@ -1879,6 +2216,19 @@
 					if (!skipped) {
 						cacheable = false;
 					}
+				}
+
+				if (ellipsisIndex < 0 && w >= targetEllipsisWidth) {
+					ellipsisIndex = i-1;
+					targetEllipsisWidth = w;
+				}
+
+				if (w > targetWidth) {
+					this.ellipsized = true;
+					this.ellipsisLength = ellipsisIndex;
+
+					w = targetEllipsisWidth;
+					break;
 				}
 			}
 
@@ -1923,10 +2273,16 @@
 
 			this.width = this.measuredWidth;
 
-			for (var i = 0, l = this.text.length; i < l; ++i) {
+			var l = this.ellipsized ? this.ellipsisLength : this.text.length;
+
+			for (var i = 0; i < l; ++i) {
 				var letter = this.text[i];
 
 				letter = this.transformLetter(letter);
+
+				if (letter === 'space') {
+					xoffset += this.getSpaceSize ? this.getSpaceSize() : 0;
+				}
 
 				var img = this.engine.resources.image(this.getLetterUrl(letter));
 
@@ -1943,6 +2299,30 @@
 
 				xoffset += img.width;
 				xoffset += this.getKerning(letter);
+			}
+
+			if (this.ellipsized) {
+				for (var i = 0; i < 3; ++i) {
+					var letter = 'period';
+
+					letter = this.transformLetter(letter);
+					
+					var img = this.engine.resources.image(this.getLetterUrl(letter));
+
+					if (!img) {
+						xoffset += this.getKerning(letter);
+						continue;
+					}
+
+					ctx.drawImage(img.img,
+						img.x, img.y,
+						img.width, img.height,
+						startx + xoffset, y,
+						img.width, img.height);
+
+					xoffset += img.width;
+					xoffset += this.getKerning(letter);
+				}
 			}
 		}
 	});
@@ -2201,10 +2581,14 @@
 		onleaving: function(leaveCallback) {
 			var self = this;
 
+			self.leaving = true;
+
 			function callback() {
 				self.trigger('leave');
 
 				leaveCallback();
+
+				self.leaving = true;
 			}
 
 			var transitionFn = this.transitionOut();
@@ -2249,7 +2633,8 @@
 
 		defaults: {
 			offsetX: 0,
-			offsetY: 0
+			offsetY: 0,
+			clip: true
 		},
 
 		init: function() {
@@ -2276,12 +2661,24 @@
 
 			if (this._targetOffsetX && this.offsetX !== this._targetOffsetX) {
 				reset = true;
-				this.offsetX = this.offsetX + (this._targetOffsetX - this.offsetX) / 8;
+
+				if (Math.abs(this.offsetX-this._targetOffsetX) < 1) {
+					this.offsetX = this._targetOffsetX;
+				}
+				else {
+					this.offsetX = this.offsetX + (this._targetOffsetX - this.offsetX) / 8;
+				}
 			}
 
 			if (this._targetOffsetY && this.offsetY !== this._targetOffsetY) {
 				reset = true;
-				this.offsetY = this.offsetY + (this._targetOffsetY - this.offsetY) / 8;
+
+				if (Math.abs(this.offsetY-this._targetOffsetY) < 1) {
+					this.offsetY = this._targetOffsetY;
+				}
+				else {
+					this.offsetY = this.offsetY + (this._targetOffsetY - this.offsetY) / 8;
+				}
 			}
 
 			if (reset) {
@@ -2322,6 +2719,8 @@
 
 			x = Math.min(0, x);
 			y = Math.min(0, y);
+
+			this.trigger('scrollChanged', x, y);
 
 			return [x, y];
 		},
@@ -2468,7 +2867,7 @@ if (typeof(require) !== 'undefined') {
 	var Game = Utils.extendTo(GameObject, function(timer) {
 		var self = this;
 
-		this.super({}, this);
+		this['super']({}, this);
 
 		this.engine = this;
 		this.entityCount = 0;
@@ -2490,10 +2889,20 @@ if (typeof(require) !== 'undefined') {
 			version = match[1];
 		}
 
+		var firstDate = +new Date();
+
 		window.ondevicemotion = function(event) {
 			var accelerationX = event.accelerationIncludingGravity.x;
 			var accelerationY = -event.accelerationIncludingGravity.y;
 			var accelerationZ = event.accelerationIncludingGravity.z;
+
+			if (accelerationX < -10 || accelerationX > 10) {
+				return;
+			}
+
+			accelerationX = accelerationX || 0;
+			accelerationY = accelerationY || 0;
+			accelerationZ = accelerationZ || 0;
 
 			if (platformName === 'android') {
 				accelerationX = -accelerationX;
@@ -2518,11 +2927,19 @@ if (typeof(require) !== 'undefined') {
 		};
 
 		window.ondeviceorientation = function(event) {
-			self.orientation = {
+			var newOrientation = {
 				alpha: event.alpha,
 				beta: event.beta,
 				gamma: event.gamma
 			};
+
+			if (self.orientation) {
+				newOrientation.alpha = (newOrientation.alpha + self.orientation.alpha) / 2;
+				newOrientation.beta = (newOrientation.beta + self.orientation.beta) / 2;
+				newOrientation.gamma = (newOrientation.gamma + self.orientation.gamma) / 2;
+			}
+
+			self.orientation = newOrientation;
 		};
 
 		this.on('gizmos', function(ctx) {
@@ -2534,7 +2951,11 @@ if (typeof(require) !== 'undefined') {
 
 			ctx.font = 'bold 26px sans-serif';
 			ctx.fillStyle = '#ff4444';
-			ctx.fillText([this.view.width, this.view.height, this._display.width, this._display.height].join(', '), 4, y += 30);
+			ctx.fillText(self.accelerationX, 4, y += 30);
+
+			ctx.font = 'bold 26px sans-serif';
+			ctx.fillStyle = '#44ff44';
+			ctx.fillText(self.smoothAccelerationX, 4, y += 30);
 		});
 
 		this.resources = new Resources();
@@ -2565,7 +2986,7 @@ if (typeof(require) !== 'undefined') {
 
 			if (Browser && Browser.forceRepaint) {
 				this.browser = Browser;
-				//this.hasForceRepaint = true;
+				this.hasForceRepaint = true;
 			}
 		}
 
@@ -2579,7 +3000,7 @@ if (typeof(require) !== 'undefined') {
 		this._objects = {};
 		this._behaviours = {};
 
-		this._fixedStep = null;//17;
+		this._fixedStep = 17;
 		this._skipThreshold = null;
 		this._renderThreshold = null;
 		this._timer = timer;
@@ -2673,15 +3094,20 @@ if (typeof(require) !== 'undefined') {
 		var oldScene = this.activeScene;
 
 		function startScene(addToStack) {
-			if (oldScene) {
-				oldScene.remove();
+			var oldIndex = 0;
 
-				if (!cancelPush || (typeof(addToStack) !== 'undefined' && !addToStack))  {
+			if (oldScene) {
+				var pushToHistory = !cancelPush || (typeof(addToStack) !== 'undefined' && !addToStack);
+
+				oldIndex = self.indexOfChild(oldScene);
+				oldScene.parent.removeChild(oldScene, !pushToHistory);
+
+				if (pushToHistory)  {
 					self._sceneHistory.push(oldScene);
 				}
 			}
 
-			self.addChild(newScene);
+			self.insertChild(newScene, oldIndex);
 			self.activeScene = newScene;
 
 			newScene.trigger('entering', function() {});
@@ -2796,6 +3222,8 @@ if (typeof(require) !== 'undefined') {
 			if (e.touches.length === 3) {
 				self.touch.trippleTapped = true;
 				self.debugging = !self.debugging;
+
+				console.log(self.debugLog());
 			}
 
 			updateCursors(e, true, true);
@@ -2909,11 +3337,36 @@ if (typeof(require) !== 'undefined') {
 		}
 	};
 
-	Game.prototype._tick = function(delta, callback) {
-		var self = this;
+var deltas = [];
 
-		var startUpdate = Date.now(), endUpdate;
+	Game.prototype._tick = function(inDelta, callback) {
+		var self = this;
+		var delta = inDelta;
+		var steps = 0;
+		var startUpdate = +new Date(), endUpdate, endRender, endCallback;
 		var updated = false;
+
+		this._eventTimeline = {};
+		this._eventDeltas = {};
+		this._eventStack = {};
+
+		function finished() {
+			endRender = +new Date();
+
+			//deltas.push([inDelta, endUpdate-startUpdate, endRender-endUpdate, steps].join('\t'));
+
+			if (deltas.length > 12) {
+				var d = [].concat(deltas);
+
+				deltas.length = 0;
+
+				window.setTimeout(function() {
+					console.log(d.join('\n'));
+				}, 0);
+			}
+		}
+
+		callback();
 
 		delta *= self.multiplier || 1;
 
@@ -2925,14 +3378,6 @@ if (typeof(require) !== 'undefined') {
 		if (self._fixedStep) {
 			self._remaining += delta;
 
-			if (Math.abs(self._remaining - self._fixedStep) < 2) {
-				self._remaining = self._fixedStep;
-			}
-
-			if (self._remaining > 100) {
-				self._remaining = 100;
-			}
-
 			while (self._remaining >= self._fixedStep) {
 				self._timestamp += self._fixedStep / 1000;
 				updated = true;
@@ -2940,12 +3385,14 @@ if (typeof(require) !== 'undefined') {
 				// update at the fixed rate until we have exhausted our
 				// available time
 				self.trigger('subtick', self._fixedStep / 1000, self._timestamp);
+
+				++steps;
 			
 				self._remaining -= self._fixedStep;
 			}
 		}
 		else {
-			self._remaining += delta;
+			self._remaining = delta;
 
 			delta = self._remaining / 1000;
 			self._remaining = 0;
@@ -2957,7 +3404,7 @@ if (typeof(require) !== 'undefined') {
 		}
 
 		// measure the time across the update step
-		endUpdate = Date.now();
+		endUpdate = +new Date();
 
 		if (updated) {
 			self._updateTimes.unshift(endUpdate-startUpdate);
@@ -2968,38 +3415,38 @@ if (typeof(require) !== 'undefined') {
 
 		if (updated && self.context) {
 			//setTimeout(function() {
-				self._render(self.context);
+			self._render(self.context);
 
-				var now = +new Date();
+			var now = +new Date();
 
-				if (now - self._lastFpsUpdate > 1000) {
-					var fpsUpdate = self._renderings;
+			if (now - self._lastFpsUpdate > 1000) {
+				var fpsUpdate = self._renderings;
 
-					if (self._fps < 0) {
-						self._fps = fpsUpdate;
-					}
-
-					// update FPS
-					self._fps = (4 * fpsUpdate + self._fps) / 5;
-					self._renderings = 0;
-					self._lastFpsUpdate = now;
+				if (self._fps < 0) {
+					self._fps = fpsUpdate;
 				}
 
-				if (this.hasForceRepaint) {
-					//setTimeout(function() {
-						this.browser.forceRepaint();
-					//}, 0);
-				}
+				// update FPS
+				self._fps = (4 * fpsUpdate + self._fps) / 5;
+				self._renderings = 0;
+				self._lastFpsUpdate = now;
+			}
 
-				callback();
+			if (this.hasForceRepaint) {
+				//setTimeout(function() {
+					//this.browser.forceRepaint();
+				//}, 0);
+			}
+
+			finished();
 		}
 		else {
-			callback();
+			finished();
 		}
 	};
 
 	Game.prototype._render = function(context) {
-		var startRender = Date.now(), endRender;
+		var startRender = +new Date(), endRender;
 
 	 	// render and update the last render time
 	 	this._lastRenderTime = this._timestamp;
@@ -3015,7 +3462,7 @@ if (typeof(require) !== 'undefined') {
 		++this._renderings;
 
 		// measure the time across the rendering step
-		endRender = Date.now();
+		endRender = +new Date();
 
 		this._renderTimes.unshift(endRender-startRender);
 		if (this._renderTimes.length >= 10) {
